@@ -44,7 +44,8 @@ function saveSettings() {
   };
 
   chrome.storage.local.set(settings, () => {
-    showStatus('設定を保存しました', 'success');
+    showStatus('設定を保存しました。タブを閉じます...', 'success');
+    setTimeout(() => { window.close(); }, 1000);
   });
 }
 
