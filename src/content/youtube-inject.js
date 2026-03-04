@@ -1,8 +1,15 @@
 // Content Script: Inject article generation button + modal on YouTube pages
 // Adapted from tube2trans/src/content/ytcontent.js
 
-if (typeof window._ytArticleGenLoaded === 'undefined') {
+(function() {
+  'use strict';
+
+  // Prevent double loading
+  if (window._ytArticleGenLoaded) return;
   window._ytArticleGenLoaded = true;
+
+  console.log('[YT-Article] ===== Content script starting =====');
+  console.log('[YT-Article] URL:', location.href);
 
   // ================================================================
   // Transcript extraction (from tube2trans)
@@ -118,6 +125,58 @@ if (typeof window._ytArticleGenLoaded === 'undefined') {
   }
 
   // ================================================================
+  // Button styles (inline - no external CSS dependency)
+  // ================================================================
+  const BTN_STYLE = [
+    'background: #065fd4',
+    'color: #fff',
+    'border: none',
+    'padding: 8px 16px',
+    'border-radius: 18px',
+    'cursor: pointer',
+    'font-size: 14px',
+    'font-weight: 500',
+    'font-family: "YouTube Sans", "Roboto", sans-serif',
+    'display: inline-flex',
+    'align-items: center',
+    'gap: 6px',
+    'margin-left: 8px',
+    'white-space: nowrap',
+    'height: 36px',
+    'box-sizing: border-box',
+    'vertical-align: middle',
+    'flex-shrink: 0',
+    'z-index: 9999',
+    'position: relative',
+    'opacity: 1',
+    'visibility: visible',
+    'line-height: 36px',
+    'letter-spacing: 0.5px',
+  ].join(' !important; ') + ' !important;';
+
+  const FLOAT_BTN_STYLE = [
+    'position: fixed',
+    'bottom: 80px',
+    'right: 20px',
+    'background: #065fd4',
+    'color: #fff',
+    'border: none',
+    'padding: 12px 20px',
+    'border-radius: 24px',
+    'cursor: pointer',
+    'font-size: 15px',
+    'font-weight: 600',
+    'font-family: "YouTube Sans", "Roboto", sans-serif',
+    'z-index: 99999',
+    'box-shadow: 0 4px 12px rgba(0,0,0,0.3)',
+    'opacity: 1',
+    'visibility: visible',
+    'display: flex',
+    'align-items: center',
+    'gap: 8px',
+  ].join(' !important; ') + ' !important;';
+
+  // ================================================================
   // Button injection
   // ================================================================
   let currentVideoId = null;
@@ -127,91 +186,102 @@ if (typeof window._ytArticleGenLoaded === 'undefined') {
     return m ? m[1] : null;
   }
 
+  function createButton(style) {
+    const btn = document.createElement('button');
+    btn.className = 'yt-article-gen-btn';
+    btn.id = 'yt-article-gen-btn';
+    btn.textContent = '\u{1F4DD} \u8A18\u4E8B\u5316'; // 📝 記事化
+    btn.setAttribute('style', style);
+    btn.addEventListener('click', showModal);
+    btn.addEventListener('mouseenter', function() {
+      this.style.background = '#0356c4';
+    });
+    btn.addEventListener('mouseleave', function() {
+      this.style.background = '#065fd4';
+    });
+    return btn;
+  }
+
   let injectRetries = 0;
-  const MAX_INJECT_RETRIES = 20;
+  const MAX_INJECT_RETRIES = 30;
 
   function injectButton() {
-    if (document.querySelector('.yt-article-gen-btn')) return;
+    // Already exists?
+    if (document.getElementById('yt-article-gen-btn')) {
+      console.log('[YT-Article] Button already exists');
+      return;
+    }
 
-    // Try multiple injection strategies in order of preference
-    const targets = [
-      // Strategy 1: After the actions area in top-row (most robust)
-      () => {
-        const topRow = document.querySelector('ytd-watch-metadata #top-row');
-        if (!topRow) return null;
-        return { container: topRow, method: 'append' };
-      },
-      // Strategy 2: Inside the actions area
-      () => {
-        const actions = document.querySelector('ytd-watch-metadata #actions');
-        if (!actions) return null;
-        return { container: actions, method: 'append' };
-      },
-      // Strategy 3: After above-the-fold title
-      () => {
-        const aboveFold = document.querySelector('#above-the-fold');
-        if (!aboveFold) return null;
-        return { container: aboveFold, method: 'prepend-after-title' };
-      },
+    console.log('[YT-Article] Attempting button injection, retry:', injectRetries);
+
+    // Try multiple selectors in order
+    const selectors = [
+      '#top-row',                                    // top row with owner+actions
+      '#above-the-fold #top-row',                    // more specific
+      'ytd-watch-metadata #top-row',                 // even more specific
+      '#actions #top-level-buttons-computed',         // inside buttons area
+      '#actions',                                    // actions container
+      '#above-the-fold',                             // above the fold area
+      '#below',                                      // below player area
+      'ytd-watch-flexy #columns #primary #primary-inner', // primary content
     ];
 
-    let injected = false;
-    for (const getTarget of targets) {
-      const target = getTarget();
-      if (!target) continue;
+    for (const selector of selectors) {
+      const container = document.querySelector(selector);
+      if (container) {
+        console.log('[YT-Article] Found container:', selector);
+        const btn = createButton(BTN_STYLE);
+        container.appendChild(btn);
 
-      const btn = document.createElement('button');
-      btn.className = 'yt-article-gen-btn';
-      btn.textContent = '記事化';
-      btn.addEventListener('click', showModal);
-
-      if (target.method === 'append') {
-        target.container.appendChild(btn);
-      } else if (target.method === 'prepend-after-title') {
-        const titleEl = target.container.querySelector('#title');
-        if (titleEl && titleEl.nextSibling) {
-          target.container.insertBefore(btn, titleEl.nextSibling);
+        // Verify
+        if (document.getElementById('yt-article-gen-btn')) {
+          console.log('[YT-Article] Button injected successfully in:', selector);
+          injectRetries = 0;
+          return;
         } else {
-          target.container.appendChild(btn);
+          console.log('[YT-Article] Button was rejected by:', selector);
         }
-      }
-
-      // Verify the button is actually in the DOM and visible
-      if (document.querySelector('.yt-article-gen-btn')) {
-        injected = true;
-        console.log('[YT-Article] Button injected via:', target.method, target.container.id || target.container.tagName);
-        break;
       }
     }
 
-    if (!injected) {
-      injectRetries++;
-      if (injectRetries < MAX_INJECT_RETRIES) {
-        console.log(`[YT-Article] Injection target not found, retrying (${injectRetries}/${MAX_INJECT_RETRIES})...`);
-        setTimeout(injectButton, 1000);
-      } else {
-        console.warn('[YT-Article] Failed to inject button after max retries');
-      }
-    } else {
+    // Fallback: floating button fixed to viewport
+    console.log('[YT-Article] All selectors failed, using floating button');
+    const floatBtn = createButton(FLOAT_BTN_STYLE);
+    document.body.appendChild(floatBtn);
+
+    if (document.getElementById('yt-article-gen-btn')) {
+      console.log('[YT-Article] Floating button injected successfully');
       injectRetries = 0;
+      return;
+    }
+
+    // If even body append failed, retry
+    injectRetries++;
+    if (injectRetries < MAX_INJECT_RETRIES) {
+      console.log('[YT-Article] All injection methods failed, retrying in 1s...');
+      setTimeout(injectButton, 1000);
+    } else {
+      console.error('[YT-Article] FAILED to inject button after', MAX_INJECT_RETRIES, 'retries');
     }
   }
 
   function removeButton() {
-    const btn = document.querySelector('.yt-article-gen-btn');
+    const btn = document.getElementById('yt-article-gen-btn');
     if (btn) btn.remove();
   }
 
   function checkForVideo() {
     const vid = extractVideoId(location.href);
+    console.log('[YT-Article] checkForVideo:', vid, 'current:', currentVideoId);
+
     if (vid && vid !== currentVideoId) {
       currentVideoId = vid;
       removeButton();
       removeModal();
       injectRetries = 0;
-      console.log('[YT-Article] Video detected:', vid);
-      setTimeout(injectButton, 1500); // Wait for YouTube SPA render
-    } else if (vid && vid === currentVideoId && !document.querySelector('.yt-article-gen-btn')) {
+      console.log('[YT-Article] New video detected:', vid);
+      setTimeout(injectButton, 2000); // Wait for YouTube SPA render
+    } else if (vid && vid === currentVideoId && !document.getElementById('yt-article-gen-btn')) {
       // Video same but button gone (YouTube re-rendered), re-inject
       injectRetries = 0;
       console.log('[YT-Article] Button missing, re-injecting for:', vid);
@@ -235,43 +305,43 @@ if (typeof window._ytArticleGenLoaded === 'undefined') {
       <div class="yt-article-modal">
         <h2>YouTube Article Generator</h2>
         <div id="yt-article-form">
-          <label>投稿先プラットフォーム</label>
+          <label>\u6295\u7A3F\u5148\u30D7\u30E9\u30C3\u30C8\u30D5\u30A9\u30FC\u30E0</label>
           <select id="yt-art-platform">
-            <option value="life">LIFE (個人ナレッジ)</option>
-            <option value="zenn">Zenn (技術記事)</option>
-            <option value="qiita">Qiita (技術記事)</option>
-            <option value="note">note (エッセイ・料理)</option>
-            <option value="cookpad">Cookpad (料理専用)</option>
+            <option value="life">LIFE (\u500B\u4EBA\u30CA\u30EC\u30C3\u30B8)</option>
+            <option value="zenn">Zenn (\u6280\u8853\u8A18\u4E8B)</option>
+            <option value="qiita">Qiita (\u6280\u8853\u8A18\u4E8B)</option>
+            <option value="note">note (\u30A8\u30C3\u30BB\u30A4\u30FB\u6599\u7406)</option>
+            <option value="cookpad">Cookpad (\u6599\u7406\u5C02\u7528)</option>
           </select>
 
-          <label>スタイル</label>
+          <label>\u30B9\u30BF\u30A4\u30EB</label>
           <select id="yt-art-style">
-            <option value="auto">自動判定</option>
-            <option value="技術解説記事（Qiita/Zenn風）">技術解説記事</option>
-            <option value="入門チュートリアル">入門チュートリアル</option>
-            <option value="深堀り解説（書籍章風）">深堀り解説</option>
-            <option value="比較・考察記事">比較・考察記事</option>
-            <option value="ハンズオン記事">ハンズオン記事</option>
-            <option value="レシピ記事">レシピ記事</option>
+            <option value="auto">\u81EA\u52D5\u5224\u5B9A</option>
+            <option value="\u6280\u8853\u89E3\u8AAC\u8A18\u4E8B\uFF08Qiita/Zenn\u98A8\uFF09">\u6280\u8853\u89E3\u8AAC\u8A18\u4E8B</option>
+            <option value="\u5165\u9580\u30C1\u30E5\u30FC\u30C8\u30EA\u30A2\u30EB">\u5165\u9580\u30C1\u30E5\u30FC\u30C8\u30EA\u30A2\u30EB</option>
+            <option value="\u6DF1\u5800\u308A\u89E3\u8AAC\uFF08\u66F8\u7C4D\u7AE0\u98A8\uFF09">\u6DF1\u5800\u308A\u89E3\u8AAC</option>
+            <option value="\u6BD4\u8F03\u30FB\u8003\u5BDF\u8A18\u4E8B">\u6BD4\u8F03\u30FB\u8003\u5BDF\u8A18\u4E8B</option>
+            <option value="\u30CF\u30F3\u30BA\u30AA\u30F3\u8A18\u4E8B">\u30CF\u30F3\u30BA\u30AA\u30F3\u8A18\u4E8B</option>
+            <option value="\u30EC\u30B7\u30D4\u8A18\u4E8B">\u30EC\u30B7\u30D4\u8A18\u4E8B</option>
           </select>
 
-          <label>難易度</label>
+          <label>\u96E3\u6613\u5EA6</label>
           <select id="yt-art-difficulty">
-            <option value="初心者向け">初心者向け</option>
-            <option value="中級者向け" selected>中級者向け</option>
-            <option value="上級者向け">上級者向け</option>
-            <option value="専門家向け">専門家向け</option>
+            <option value="\u521D\u5FC3\u8005\u5411\u3051">\u521D\u5FC3\u8005\u5411\u3051</option>
+            <option value="\u4E2D\u7D1A\u8005\u5411\u3051" selected>\u4E2D\u7D1A\u8005\u5411\u3051</option>
+            <option value="\u4E0A\u7D1A\u8005\u5411\u3051">\u4E0A\u7D1A\u8005\u5411\u3051</option>
+            <option value="\u5C02\u9580\u5BB6\u5411\u3051">\u5C02\u9580\u5BB6\u5411\u3051</option>
           </select>
 
-          <label>対象読者</label>
-          <input type="text" id="yt-art-audience" value="エンジニア全般" />
+          <label>\u5BFE\u8C61\u8AAD\u8005</label>
+          <input type="text" id="yt-art-audience" value="\u30A8\u30F3\u30B8\u30CB\u30A2\u5168\u822C" />
 
-          <label>記事タイトル（空欄でAI自動生成）</label>
-          <input type="text" id="yt-art-title" placeholder="省略可" />
+          <label>\u8A18\u4E8B\u30BF\u30A4\u30C8\u30EB\uFF08\u7A7A\u6B04\u3067AI\u81EA\u52D5\u751F\u6210\uFF09</label>
+          <input type="text" id="yt-art-title" placeholder="\u7701\u7565\u53EF" />
 
           <div class="yt-article-modal-actions">
-            <button class="yt-article-btn-cancel" id="yt-art-cancel">キャンセル</button>
-            <button class="yt-article-btn-generate" id="yt-art-generate">記事を生成</button>
+            <button class="yt-article-btn-cancel" id="yt-art-cancel">\u30AD\u30E3\u30F3\u30BB\u30EB</button>
+            <button class="yt-article-btn-generate" id="yt-art-generate">\u8A18\u4E8B\u3092\u751F\u6210</button>
           </div>
         </div>
         <div id="yt-article-progress" class="yt-article-progress" style="display:none;"></div>
@@ -283,13 +353,17 @@ if (typeof window._ytArticleGenLoaded === 'undefined') {
     document.body.appendChild(overlay);
 
     // Load saved defaults
-    chrome.storage.local.get(['defaults'], (data) => {
-      const d = data.defaults || {};
-      if (d.platform) document.getElementById('yt-art-platform').value = d.platform;
-      if (d.difficulty) document.getElementById('yt-art-difficulty').value = d.difficulty;
-      if (d.audience) document.getElementById('yt-art-audience').value = d.audience;
-      if (d.style) document.getElementById('yt-art-style').value = d.style;
-    });
+    try {
+      chrome.storage.local.get(['defaults'], (data) => {
+        const d = data.defaults || {};
+        if (d.platform) document.getElementById('yt-art-platform').value = d.platform;
+        if (d.difficulty) document.getElementById('yt-art-difficulty').value = d.difficulty;
+        if (d.audience) document.getElementById('yt-art-audience').value = d.audience;
+        if (d.style) document.getElementById('yt-art-style').value = d.style;
+      });
+    } catch (e) {
+      console.log('[YT-Article] Could not load defaults:', e.message);
+    }
 
     overlay.addEventListener('click', (e) => {
       if (e.target === overlay) removeModal();
@@ -315,14 +389,14 @@ if (typeof window._ytArticleGenLoaded === 'undefined') {
   async function startGeneration() {
     const btn = document.getElementById('yt-art-generate');
     btn.disabled = true;
-    btn.textContent = '生成中...';
+    btn.textContent = '\u751F\u6210\u4E2D...';
     document.getElementById('yt-article-error').style.display = 'none';
     document.getElementById('yt-article-result').style.display = 'none';
 
     const steps = [
-      { label: '字幕を取得中...', status: 'active' },
-      { label: 'AI記事を生成中...', status: '' },
-      { label: 'GitHubに保存中...', status: '' },
+      { label: '\u5B57\u5E55\u3092\u53D6\u5F97\u4E2D...', status: 'active' },
+      { label: 'AI\u8A18\u4E8B\u3092\u751F\u6210\u4E2D...', status: '' },
+      { label: 'GitHub\u306B\u4FDD\u5B58\u4E2D...', status: '' },
     ];
     updateProgress(steps);
 
@@ -330,7 +404,7 @@ if (typeof window._ytArticleGenLoaded === 'undefined') {
       // Step 1: Get transcript
       const { entries, lang, error } = await getTranscript(null);
       if (error || entries.length === 0) {
-        throw new Error(error || '字幕が取得できませんでした');
+        throw new Error(error || '\u5B57\u5E55\u304C\u53D6\u5F97\u3067\u304D\u307E\u305B\u3093\u3067\u3057\u305F');
       }
 
       steps[0].status = 'done';
@@ -365,29 +439,29 @@ if (typeof window._ytArticleGenLoaded === 'undefined') {
       resultEl.style.display = 'block';
       resultEl.innerHTML = `
         <div class="yt-article-result">
-          <h3>記事化完了</h3>
+          <h3>\u8A18\u4E8B\u5316\u5B8C\u4E86</h3>
           <p><strong>${result.articleTitle}</strong></p>
-          <p>ジャンル: ${result.genre} | AI: ${result.provider} | ${result.articleChars.toLocaleString()}文字</p>
-          <p><a href="${result.githubUrl}" target="_blank">GitHubで記事を見る</a></p>
+          <p>\u30B8\u30E3\u30F3\u30EB: ${result.genre} | AI: ${result.provider} | ${result.articleChars.toLocaleString()}\u6587\u5B57</p>
+          <p><a href="${result.githubUrl}" target="_blank">GitHub\u3067\u8A18\u4E8B\u3092\u898B\u308B</a></p>
           <div class="yt-article-result-actions">
-            <button id="yt-art-copy">記事をコピー</button>
-            <button id="yt-art-close">閉じる</button>
+            <button id="yt-art-copy">\u8A18\u4E8B\u3092\u30B3\u30D4\u30FC</button>
+            <button id="yt-art-close">\u9589\u3058\u308B</button>
           </div>
         </div>
       `;
 
       document.getElementById('yt-art-copy').addEventListener('click', () => {
         navigator.clipboard.writeText(result.articleContent);
-        document.getElementById('yt-art-copy').textContent = 'コピー済み!';
+        document.getElementById('yt-art-copy').textContent = '\u30B3\u30D4\u30FC\u6E08\u307F!';
       });
       document.getElementById('yt-art-close').addEventListener('click', removeModal);
 
     } catch (e) {
       const errEl = document.getElementById('yt-article-error');
       errEl.style.display = 'block';
-      errEl.textContent = `エラー: ${e.message}`;
+      errEl.textContent = `\u30A8\u30E9\u30FC: ${e.message}`;
       btn.disabled = false;
-      btn.textContent = '記事を生成';
+      btn.textContent = '\u8A18\u4E8B\u3092\u751F\u6210';
     }
   }
 
@@ -396,7 +470,6 @@ if (typeof window._ytArticleGenLoaded === 'undefined') {
   // ================================================================
   chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     if (msg.type === 'UPDATE_PROGRESS') {
-      // Could be used for more granular progress from service worker
       console.log('[YT-Article] Progress:', msg.message);
     }
     return false;
@@ -419,12 +492,12 @@ if (typeof window._ytArticleGenLoaded === 'undefined') {
 
   // Periodic check: YouTube SPA may re-render and remove our button
   setInterval(() => {
-    if (currentVideoId && !document.querySelector('.yt-article-gen-btn')) {
+    if (currentVideoId && !document.getElementById('yt-article-gen-btn')) {
       console.log('[YT-Article] Periodic check: button missing, re-injecting');
       injectRetries = 0;
       injectButton();
     }
   }, 3000);
 
-  console.log('[YT-Article] Content script loaded');
-}
+  console.log('[YT-Article] Content script loaded successfully');
+})();
