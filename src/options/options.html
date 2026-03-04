@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>YouTube Article Generator - 設定</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: #f8f9fa; padding: 24px; color: #333; }
+    .container { max-width: 600px; margin: 0 auto; }
+    h1 { font-size: 22px; margin-bottom: 24px; color: #0f0f0f; }
+    h2 { font-size: 16px; margin: 24px 0 12px; color: #065fd4; border-bottom: 2px solid #065fd4; padding-bottom: 4px; }
+    .field { margin-bottom: 16px; }
+    .field label { display: block; font-size: 13px; font-weight: 600; margin-bottom: 4px; color: #606060; }
+    .field input, .field select {
+      width: 100%; padding: 8px 12px; border: 1px solid #d3d3d3; border-radius: 6px; font-size: 14px;
+    }
+    .field input:focus, .field select:focus { outline: none; border-color: #065fd4; }
+    .field .hint { font-size: 11px; color: #999; margin-top: 2px; }
+    .field input[type="password"] { font-family: monospace; }
+    .btn-row { margin-top: 24px; display: flex; gap: 12px; }
+    .btn { padding: 10px 24px; border: none; border-radius: 18px; font-size: 14px; font-weight: 500; cursor: pointer; }
+    .btn-primary { background: #065fd4; color: #fff; }
+    .btn-primary:hover { background: #0356c4; }
+    .btn-secondary { background: #f2f2f2; color: #333; }
+    .btn-secondary:hover { background: #e5e5e5; }
+    .status { margin-top: 12px; padding: 8px 12px; border-radius: 6px; font-size: 13px; display: none; }
+    .status.success { display: block; background: #f0f9f4; color: #1a7f37; border: 1px solid #a7e3bb; }
+    .status.error { display: block; background: #fef0f0; color: #d32f2f; border: 1px solid #f5c6c6; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>YouTube Article Generator 設定</h1>
+
+    <h2>GitHub設定</h2>
+    <div class="field">
+      <label>GitHub Personal Access Token</label>
+      <input type="password" id="githubToken" placeholder="ghp_xxxxxxxxxxxx">
+      <div class="hint">repo権限が必要です</div>
+    </div>
+    <div class="field">
+      <label>GitHub Repository</label>
+      <input type="text" id="githubRepo" placeholder="username/LIFE">
+    </div>
+
+    <h2>AI APIキー設定</h2>
+    <div class="hint" style="margin-bottom:12px;">設定されたキーの上から順に使用します（フォールバック）</div>
+    <div class="field">
+      <label>1. さくらのAI Engine Token</label>
+      <input type="password" id="sakuraToken" placeholder="さくらAIトークン">
+    </div>
+    <div class="field">
+      <label>2. Google Gemini API Key</label>
+      <input type="password" id="geminiKey" placeholder="Gemini APIキー">
+    </div>
+    <div class="field">
+      <label>3. OpenAI API Key</label>
+      <input type="password" id="openaiKey" placeholder="sk-xxxxxxxx">
+    </div>
+    <div class="field">
+      <label>4. Anthropic API Key</label>
+      <input type="password" id="anthropicKey" placeholder="sk-ant-xxxxxxxx">
+    </div>
+
+    <h2>デフォルト記事設定</h2>
+    <div class="field">
+      <label>プラットフォーム</label>
+      <select id="defPlatform">
+        <option value="life">LIFE (個人ナレッジ)</option>
+        <option value="zenn">Zenn</option>
+        <option value="qiita">Qiita</option>
+        <option value="note">note</option>
+        <option value="cookpad">Cookpad</option>
+      </select>
+    </div>
+    <div class="field">
+      <label>難易度</label>
+      <select id="defDifficulty">
+        <option value="初心者向け">初心者向け</option>
+        <option value="中級者向け">中級者向け</option>
+        <option value="上級者向け">上級者向け</option>
+        <option value="専門家向け">専門家向け</option>
+      </select>
+    </div>
+    <div class="field">
+      <label>対象読者</label>
+      <input type="text" id="defAudience" value="エンジニア全般">
+    </div>
+    <div class="field">
+      <label>スタイル</label>
+      <select id="defStyle">
+        <option value="auto">自動判定</option>
+        <option value="技術解説記事（Qiita/Zenn風）">技術解説記事</option>
+        <option value="入門チュートリアル">入門チュートリアル</option>
+        <option value="レシピ記事">レシピ記事</option>
+      </select>
+    </div>
+
+    <div class="btn-row">
+      <button class="btn btn-primary" id="saveBtn">保存</button>
+      <button class="btn btn-secondary" id="resetBtn">リセット</button>
+    </div>
+    <div class="status" id="status"></div>
+  </div>
+  <script src="options.js"></script>
+</body>
+</html>

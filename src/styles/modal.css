@@ -1,0 +1,149 @@
+/* Article generation modal overlay */
+.yt-article-modal-overlay {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0,0,0,0.6);
+  z-index: 99999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: "YouTube Sans", "Roboto", sans-serif;
+}
+.yt-article-modal {
+  background: #fff;
+  border-radius: 12px;
+  width: 520px;
+  max-height: 80vh;
+  overflow-y: auto;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+  padding: 24px;
+}
+.yt-article-modal h2 {
+  margin: 0 0 16px;
+  font-size: 20px;
+  color: #0f0f0f;
+}
+.yt-article-modal label {
+  display: block;
+  margin: 12px 0 4px;
+  font-size: 13px;
+  font-weight: 500;
+  color: #606060;
+}
+.yt-article-modal select,
+.yt-article-modal input[type="text"] {
+  width: 100%;
+  padding: 8px 12px;
+  border: 1px solid #d3d3d3;
+  border-radius: 8px;
+  font-size: 14px;
+  box-sizing: border-box;
+}
+.yt-article-modal select:focus,
+.yt-article-modal input:focus {
+  outline: none;
+  border-color: #065fd4;
+}
+.yt-article-modal-actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 20px;
+  justify-content: flex-end;
+}
+.yt-article-modal-actions button {
+  padding: 10px 24px;
+  border-radius: 18px;
+  border: none;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+}
+.yt-article-btn-generate {
+  background: #065fd4;
+  color: #fff;
+}
+.yt-article-btn-generate:hover { background: #0356c4; }
+.yt-article-btn-generate:disabled {
+  background: #ccc;
+  cursor: not-allowed;
+}
+.yt-article-btn-cancel {
+  background: #f2f2f2;
+  color: #0f0f0f;
+}
+.yt-article-btn-cancel:hover { background: #e5e5e5; }
+
+/* Progress section */
+.yt-article-progress {
+  margin-top: 16px;
+  padding: 12px;
+  background: #f8f9fa;
+  border-radius: 8px;
+  font-size: 13px;
+  color: #606060;
+}
+.yt-article-progress .step {
+  padding: 4px 0;
+}
+.yt-article-progress .step.active {
+  color: #065fd4;
+  font-weight: 500;
+}
+.yt-article-progress .step.done {
+  color: #1a7f37;
+}
+.yt-article-progress .step.done::before {
+  content: "✓ ";
+}
+.yt-article-progress .step.active::before {
+  content: "⏳ ";
+}
+
+/* Result section */
+.yt-article-result {
+  margin-top: 16px;
+  padding: 16px;
+  background: #f0f9f4;
+  border: 1px solid #a7e3bb;
+  border-radius: 8px;
+}
+.yt-article-result h3 {
+  margin: 0 0 8px;
+  font-size: 16px;
+  color: #1a7f37;
+}
+.yt-article-result p {
+  margin: 4px 0;
+  font-size: 13px;
+  color: #333;
+}
+.yt-article-result a {
+  color: #065fd4;
+  text-decoration: none;
+}
+.yt-article-result a:hover { text-decoration: underline; }
+.yt-article-result-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+}
+.yt-article-result-actions button {
+  padding: 6px 16px;
+  border-radius: 14px;
+  border: 1px solid #d3d3d3;
+  background: #fff;
+  font-size: 13px;
+  cursor: pointer;
+}
+.yt-article-result-actions button:hover { background: #f2f2f2; }
+
+/* Error */
+.yt-article-error {
+  margin-top: 16px;
+  padding: 12px;
+  background: #fef0f0;
+  border: 1px solid #f5c6c6;
+  border-radius: 8px;
+  color: #d32f2f;
+  font-size: 13px;
+}

@@ -1,0 +1,10 @@
+{
+  "name": "youtube-article-extension",
+  "version": "1.0.0",
+  "description": "YouTube動画を記事に変換するChrome拡張機能",
+  "scripts": {
+    "build": "cp -r src/* dist/",
+    "clean": "rm -rf dist",
+    "zip": "cd src && zip -r ../youtube-article-extension.zip ."
+  }
+}
