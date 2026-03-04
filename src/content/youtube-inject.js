@@ -127,24 +127,74 @@ if (typeof window._ytArticleGenLoaded === 'undefined') {
     return m ? m[1] : null;
   }
 
+  let injectRetries = 0;
+  const MAX_INJECT_RETRIES = 20;
+
   function injectButton() {
     if (document.querySelector('.yt-article-gen-btn')) return;
 
-    const actionsContainer =
-      document.querySelector('#actions #top-level-buttons-computed') ||
-      document.querySelector('#actions ytd-menu-renderer') ||
-      document.querySelector('ytd-watch-metadata #actions');
+    // Try multiple injection strategies in order of preference
+    const targets = [
+      // Strategy 1: After the actions area in top-row (most robust)
+      () => {
+        const topRow = document.querySelector('ytd-watch-metadata #top-row');
+        if (!topRow) return null;
+        return { container: topRow, method: 'append' };
+      },
+      // Strategy 2: Inside the actions area
+      () => {
+        const actions = document.querySelector('ytd-watch-metadata #actions');
+        if (!actions) return null;
+        return { container: actions, method: 'append' };
+      },
+      // Strategy 3: After above-the-fold title
+      () => {
+        const aboveFold = document.querySelector('#above-the-fold');
+        if (!aboveFold) return null;
+        return { container: aboveFold, method: 'prepend-after-title' };
+      },
+    ];
 
-    if (!actionsContainer) {
-      setTimeout(injectButton, 1000);
-      return;
+    let injected = false;
+    for (const getTarget of targets) {
+      const target = getTarget();
+      if (!target) continue;
+
+      const btn = document.createElement('button');
+      btn.className = 'yt-article-gen-btn';
+      btn.textContent = '記事化';
+      btn.addEventListener('click', showModal);
+
+      if (target.method === 'append') {
+        target.container.appendChild(btn);
+      } else if (target.method === 'prepend-after-title') {
+        const titleEl = target.container.querySelector('#title');
+        if (titleEl && titleEl.nextSibling) {
+          target.container.insertBefore(btn, titleEl.nextSibling);
+        } else {
+          target.container.appendChild(btn);
+        }
+      }
+
+      // Verify the button is actually in the DOM and visible
+      if (document.querySelector('.yt-article-gen-btn')) {
+        injected = true;
+        console.log('[YT-Article] Button injected via:', target.method, target.container.id || target.container.tagName);
+        break;
+      }
     }
 
-    const btn = document.createElement('button');
-    btn.className = 'yt-article-gen-btn';
-    btn.textContent = '記事化';
-    btn.addEventListener('click', showModal);
-    actionsContainer.appendChild(btn);
+    if (!injected) {
+      injectRetries++;
+      if (injectRetries < MAX_INJECT_RETRIES) {
+        console.log(`[YT-Article] Injection target not found, retrying (${injectRetries}/${MAX_INJECT_RETRIES})...`);
+        setTimeout(injectButton, 1000);
+      } else {
+        console.warn('[YT-Article] Failed to inject button after max retries');
+      }
+    } else {
+      injectRetries = 0;
+    }
   }
 
   function removeButton() {
@@ -158,7 +208,14 @@ if (typeof window._ytArticleGenLoaded === 'undefined') {
       currentVideoId = vid;
       removeButton();
       removeModal();
+      injectRetries = 0;
+      console.log('[YT-Article] Video detected:', vid);
       setTimeout(injectButton, 1500); // Wait for YouTube SPA render
+    } else if (vid && vid === currentVideoId && !document.querySelector('.yt-article-gen-btn')) {
+      // Video same but button gone (YouTube re-rendered), re-inject
+      injectRetries = 0;
+      console.log('[YT-Article] Button missing, re-injecting for:', vid);
+      setTimeout(injectButton, 500);
     } else if (!vid) {
       currentVideoId = null;
       removeButton();
@@ -359,6 +416,15 @@ if (typeof window._ytArticleGenLoaded === 'undefined') {
 
   // Initial check
   checkForVideo();
+
+  // Periodic check: YouTube SPA may re-render and remove our button
+  setInterval(() => {
+    if (currentVideoId && !document.querySelector('.yt-article-gen-btn')) {
+      console.log('[YT-Article] Periodic check: button missing, re-injecting');
+      injectRetries = 0;
+      injectButton();
+    }
+  }, 3000);
 
   console.log('[YT-Article] Content script loaded');
 }
