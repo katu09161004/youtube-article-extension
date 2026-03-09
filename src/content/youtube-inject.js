@@ -19,21 +19,19 @@
     return url.replace(/\\u0026/g, '&').replace(/\\\//g, '/').replace(/&amp;/g, '&');
   }
 
-  function extractCaptionTracks() {
-    const pageHtml = document.documentElement.innerHTML;
-
-    // Method 1: bracket counting
-    const captionStart = pageHtml.indexOf('"captionTracks":[');
+  function parseCaptionTracksFromHtml(html) {
+    // Method 1: bracket counting for captionTracks array
+    const captionStart = html.indexOf('"captionTracks":[');
     if (captionStart !== -1) {
       try {
         const arrayStart = captionStart + '"captionTracks":'.length;
         let depth = 0, arrayEnd = -1;
-        for (let i = arrayStart; i < pageHtml.length && i < arrayStart + 50000; i++) {
-          if (pageHtml[i] === '[') depth++;
-          else if (pageHtml[i] === ']') { depth--; if (depth === 0) { arrayEnd = i + 1; break; } }
+        for (let i = arrayStart; i < html.length && i < arrayStart + 50000; i++) {
+          if (html[i] === '[') depth++;
+          else if (html[i] === ']') { depth--; if (depth === 0) { arrayEnd = i + 1; break; } }
         }
         if (arrayEnd !== -1) {
-          let jsonStr = pageHtml.substring(arrayStart, arrayEnd)
+          let jsonStr = html.substring(arrayStart, arrayEnd)
             .replace(/\\u0026/g, '&').replace(/\\\//g, '/');
           const tracks = JSON.parse(jsonStr);
           if (tracks && tracks.length > 0) {
@@ -45,14 +43,14 @@
             }));
           }
         }
-      } catch (e) { console.log('[YT-Article] Method 1 parse failed:', e.message); }
+      } catch (e) { console.log('[YT-Article] captionTracks parse failed:', e.message); }
     }
 
     // Method 2: timedtext regex
     const regex = /"baseUrl"\s*:\s*"(https?:[^"]*timedtext[^"]*)"/g;
     const matches = [];
     let m;
-    while ((m = regex.exec(pageHtml)) !== null) matches.push(m[1]);
+    while ((m = regex.exec(html)) !== null) matches.push(m[1]);
     if (matches.length > 0) {
       return matches.map((rawUrl, i) => {
         const url = unescapeUrl(rawUrl);
@@ -66,6 +64,36 @@
       });
     }
     return [];
+  }
+
+  function extractCaptionTracks() {
+    // Try from current page DOM first
+    console.log('[YT-Article] Trying to extract captions from page DOM...');
+    const pageHtml = document.documentElement.innerHTML;
+    const tracks = parseCaptionTracksFromHtml(pageHtml);
+    if (tracks.length > 0) {
+      console.log('[YT-Article] Found', tracks.length, 'caption tracks from DOM');
+      return tracks;
+    }
+    console.log('[YT-Article] No captions found in DOM');
+    return [];
+  }
+
+  async function extractCaptionTracksViaFetch(videoId) {
+    // Fetch the video page HTML directly (works for SPA navigation)
+    console.log('[YT-Article] Fetching video page HTML for captions...');
+    try {
+      const resp = await fetch(`https://www.youtube.com/watch?v=${videoId}`, {
+        credentials: 'omit',
+      });
+      const html = await resp.text();
+      const tracks = parseCaptionTracksFromHtml(html);
+      console.log('[YT-Article] Fetch method found', tracks.length, 'caption tracks');
+      return tracks;
+    } catch (e) {
+      console.log('[YT-Article] Fetch method failed:', e.message);
+      return [];
+    }
   }
 
   async function fetchTranscript(baseUrl) {
@@ -96,9 +124,19 @@
   }
 
   async function getTranscript(langHint) {
-    const tracks = extractCaptionTracks();
-    if (tracks.length === 0) return { entries: [], lang: 'none', error: 'No captions found' };
+    // Strategy 1: Extract from current page DOM
+    let tracks = extractCaptionTracks();
 
+    // Strategy 2: Fetch video page HTML (handles SPA navigation)
+    if (tracks.length === 0 && currentVideoId) {
+      tracks = await extractCaptionTracksViaFetch(currentVideoId);
+    }
+
+    if (tracks.length === 0) {
+      return { entries: [], lang: 'none', error: '\u5B57\u5E55\u304C\u898B\u3064\u304B\u308A\u307E\u305B\u3093\u3002\u3053\u306E\u52D5\u753B\u306B\u306F\u5B57\u5E55\u304C\u306A\u3044\u53EF\u80FD\u6027\u304C\u3042\u308A\u307E\u3059\u3002' };
+    }
+
+    // Select best language track
     let track;
     if (langHint) {
       track = tracks.find(t => t.languageCode === langHint) || tracks[0];
@@ -108,10 +146,17 @@
            || tracks[0];
     }
 
+    console.log('[YT-Article] Using caption track:', track.languageCode, track.name);
+
     try {
       const entries = await fetchTranscript(track.baseUrl);
+      if (entries.length === 0) {
+        return { entries: [], lang: track.languageCode, error: '\u5B57\u5E55\u30C7\u30FC\u30BF\u304C\u7A7A\u3067\u3059' };
+      }
+      console.log('[YT-Article] Got', entries.length, 'transcript entries');
       return { entries, lang: track.languageCode, error: null };
     } catch (e) {
+      console.error('[YT-Article] Transcript fetch failed:', e);
       return { entries: [], lang: track.languageCode, error: e.message };
     }
   }
