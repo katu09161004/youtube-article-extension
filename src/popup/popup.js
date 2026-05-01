@@ -40,6 +40,15 @@ async function init() {
     ).join(' ');
     if (!checks[0].ok || !checks[1].ok) {
       status.innerHTML += ' <a href="#" id="setupLink" style="color:#065fd4;font-size:11px;">設定が必要です</a>';
+              setTimeout(() => {
+                          const setupLink = document.getElementById('setupLink');
+                          if (setupLink) {
+                                        setupLink.addEventListener('click', (e) => {
+                                                        e.preventDefault();
+                                                        chrome.runtime.openOptionsPage();
+                                        });
+                          }
+              }, 0);
     }
   });
 
